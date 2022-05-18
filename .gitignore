@@ -4,6 +4,8 @@
 *.whl
 build
 *.egg-info
+.devcontainer/
+.DS_Store
 
 # Dataset
 *.npz
@@ -30,3 +32,16 @@ _build
 logs
 
 .idea
+
+# References and reports
+references/*
+reports/*
+data/*
+experiments/*
+*.xls
+
+# Dask files
+dask_worker_space/*
+notebooks/dask_worker_space/*
+*.lock
+*.dirlock
