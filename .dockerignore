@@ -63,6 +63,7 @@ logs
 references/*
 reports/*
 data/*
+!data/epacems/year=2019
 experiments/*
 
 # Dask files
