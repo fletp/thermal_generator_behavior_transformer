@@ -13,6 +13,10 @@ from sktime.utils import load_data
 
 from datasets import utils
 
+# For interfacing with parquet files from PUDL
+import dask.dataframe as dd
+from dask.distributed import Client
+
 logger = logging.getLogger('__main__')
 
 
@@ -439,6 +443,89 @@ class PMUData(BaseData):
         return df
 
 
+class EpacemsData(BaseData):
+    """
+    Dataset class for Machine dataset.
+    Attributes:
+        all_df: dataframe indexed by ID, with multiple rows corresponding to the same index (sample).
+            Each row is a time step; Each column contains either metadata (e.g. timestamp) or a feature.
+        feature_df: contains the subset of columns of `all_df` which correspond to selected features
+        feature_names: names of columns contained in `feature_df` (same as feature_df.columns)
+        all_IDs: IDs contained in `all_df`/`feature_df` (same as all_df.index.unique() )
+        max_seq_len: maximum sequence (time series) length. If None, script argument `max_seq_len` will be used.
+            (Moreover, script argument overrides this attribute)
+    """
+
+    def __init__(self, root_dir, file_list=None, pattern=None, n_proc=1, limit_size=None, config=None):
+
+        self.set_num_processes(n_proc=n_proc)
+
+        self.all_df = self.load_all(root_dir, file_list=file_list, pattern=pattern)
+        self.all_df = self.all_df.sort_values(by=['sample_id'])  # datasets is presorted
+        self.all_df = self.all_df.set_index('sample_id')
+        self.all_IDs = self.all_df.index.unique()  # all sample (session) IDs
+        self.max_seq_len = 744
+        if limit_size is not None:
+            if limit_size > 1:
+                limit_size = int(limit_size)
+            else:  # interpret as proportion if in (0, 1]
+                limit_size = int(limit_size * len(self.all_IDs))
+            self.all_IDs = self.all_IDs[:limit_size]
+            self.all_df = self.all_df.loc[self.all_IDs]
+
+        self.feature_names = ['operating_time_hours', 'gross_load_mw', 'heat_content_mwh']
+        self.feature_df = self.all_df[self.feature_names]
+
+    def load_all(self, root_dir, file_list = None, pattern = None):
+        """
+        Loads datasets from parquet files contained in `root_dir` into a dataframe, optionally choosing from `pattern`
+        Args:
+            root_dir: directory containing the partitioned parquet files
+        Returns:
+            all_df: a single (possibly concatenated) dataframe with all data corresponding to specified files
+        """
+        client = Client()
+
+        row_filter = [[('year', '=', 2019), ('state', '=', 'TX')]]
+        col_filter = [
+            "state",
+            "operating_datetime_utc",
+            "unit_id_epa",
+            "operating_time_hours",
+            "gross_load_mw",
+            "heat_content_mmbtu"
+        ]
+        epacems_dd = dd.read_parquet(
+            root_dir,
+            filters=row_filter,
+            columns=col_filter
+        )
+        all_df = epacems_dd.compute()
+
+        # I chose to convert the heat_content_mmbtu column to a heat_content_mwh column 
+        # for ease of interpretation by non-energy-experts
+        all_df['heat_content_mwh'] = all_df.heat_content_mmbtu / 3.409510
+        all_df.drop(columns = ['heat_content_mmbtu'], inplace = True)
+
+        # I chose to fill the NaNs in operating_time_hours with zeros, becuase they 
+        # occur in these giant long chunks, at least in several places, and to my best 
+        # understanding the EPA wouldn't allow missing values in this dataset, since
+        # it's a financial dataset used for cap and trade
+        all_df.operating_time_hours  = all_df.operating_time_hours.fillna(0)
+
+        # Now, getting the TGU-month sample IDs for use by the transformer model
+        all_df['year'] = all_df.operating_datetime_utc.dt.year
+        all_df['month'] = all_df.operating_datetime_utc.dt.month
+        
+        index_cols = ['unit_id_epa', 'year', 'month']
+        id_df = all_df.loc[:, index_cols].drop_duplicates().reset_index(drop = True)
+        id_df = id_df.reset_index().rename(columns = {'index' : 'sample_id'}).set_index(index_cols)
+        all_df = all_df.set_index(index_cols)
+        all_df = all_df.merge(id_df, how = 'inner', left_index = True, right_index = True)
+
+        return all_df
+
 data_factory = {'weld': WeldData,
                 'tsra': TSRegressionArchive,
-                'pmu': PMUData}
+                'pmu': PMUData,
+                'cems': EpacemsData}
