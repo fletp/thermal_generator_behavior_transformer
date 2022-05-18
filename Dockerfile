@@ -1,5 +1,8 @@
 # For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3.8-slim
+FROM ubuntu:latest
+
+# System packages 
+RUN apt-get update && apt-get install -yq curl wget jq vim
 
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -7,10 +10,22 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
 
-# Install pip requirements
-COPY requirements.txt .
-RUN python -m pip install -r requirements.txt
+# Use the above args 
+ARG CONDA_VER=latest
+ARG OS_TYPE=x86_64
+# Install miniconda to /miniconda
+RUN curl -LO "http://repo.continuum.io/miniconda/Miniconda3-${CONDA_VER}-Linux-${OS_TYPE}.sh"
+RUN bash Miniconda3-${CONDA_VER}-Linux-${OS_TYPE}.sh -p /miniconda -b
+RUN rm Miniconda3-${CONDA_VER}-Linux-${OS_TYPE}.sh
+ENV PATH=/miniconda/bin:${PATH}
+RUN conda update -y conda
+RUN conda init
 
+# Install packages from conda 
+COPY environment_manual.yml .
+RUN conda env create -f environment_manual.yml
+
+# Set directories
 WORKDIR /app
 COPY . /app
 
@@ -20,4 +35,4 @@ RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /
 USER appuser
 
 # During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
-CMD ["python", "src/main.py"]
+#CMD ["python", "src/main.py"]
