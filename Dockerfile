@@ -1,16 +1,19 @@
 # For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3.8-slim
+FROM continuumio/miniconda3:latest
 
-# Keeps Python from generating .pyc files in the container
-ENV PYTHONDONTWRITEBYTECODE=1
+# Install packages from conda 
+COPY environment_manual.yml .
+RUN conda env create -f environment_manual.yml
 
-# Turns off buffering for easier container logging
-ENV PYTHONUNBUFFERED=1
+#ENV CONDA_ENV_NAME mvts_container_manual
+RUN echo "source activate mvts_container_manual" > /etc/bashrc
+ENV PATH=/opt/conda/envs/mvts_container_manual/bin:$PATH
 
-# Install pip requirements
-COPY requirements.txt .
-RUN python -m pip install -r requirements.txt
+# Make sure the environment is activated:
+RUN echo "Make sure PyTorch is installed:"
+RUN python -c "import torch"
 
+# Set directories
 WORKDIR /app
 COPY . /app
 
@@ -20,4 +23,4 @@ RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /
 USER appuser
 
 # During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
-CMD ["python", "src/main.py"]
+#CMD ["python", "src/main.py"]

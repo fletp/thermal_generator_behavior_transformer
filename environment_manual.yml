@@ -1,0 +1,23 @@
+name: mvts_container_manual
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - tqdm
+  - xlrd
+  - pandas
+  - xlutils
+  - tabulate
+  - pytorch
+  - tensorboard
+  - matplotlib
+  - scikit-learn
+  - dask
+  - ipdb
+  - pyarrow
+  - pip
+  - pip:
+    - sktime==0.4.1
+prefix: /Users/fletcherpassow/miniconda3/envs/mvts_container_manual
