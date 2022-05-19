@@ -137,7 +137,7 @@ class Options(object):
                                  help='If set, freezes all layer parameters except for the output layer. Also removes dropout except before the output layer')
 
         # Model
-        self.parser.add_argument('--model', choices={"transformer", "LINEAR"}, default="transformer",
+        self.parser.add_argument('--model', choices={"transformer", "trans_conv"}, default="transformer",
                                  help="Model class")
         self.parser.add_argument('--max_seq_len', type=int,
                                  help="""Maximum input sequence length. Determines size of transformer layers.
