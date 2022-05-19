@@ -257,7 +257,8 @@ class TSTransformerEncoderConv(nn.Module):
 
         self.project_inp = nn.Conv1d(in_channels=feat_dim,
                                     out_channels=self.d_model,
-                                    kernel_size=5)
+                                    kernel_size=5,
+                                    padding='same')
         self.pos_enc = get_pos_encoder(pos_encoding)(d_model, dropout=dropout*(1.0 - freeze), max_len=max_len)
 
         if norm == 'LayerNorm':
@@ -284,10 +285,12 @@ class TSTransformerEncoderConv(nn.Module):
             output: (batch_size, seq_length, feat_dim)
         """
 
-        # permute because pytorch convention for transformers is [seq_length, batch_size, feat_dim]. padding_masks [batch_size, feat_dim]
-        inp = X.permute(1, 0, 2)
+        # permute because pytorch convention for Conv1D is [batch_size, feat_dim, seq_length]
+        inp = X.permute(0, 2, 1)
         inp = self.project_inp(inp) * math.sqrt(
-            self.d_model)  # [seq_length, batch_size, d_model] project input vectors to d_model dimensional space
+            self.d_model)  # [batch_size, d_model, seq_length] project input vectors to d_model dimensional space
+        # permute because pytorch convention for transformers is [seq_length, batch_size, feat_dim]. padding_masks [batch_size, feat_dim]
+        inp = inp.permute(2, 0, 1)
         inp = self.pos_enc(inp)  # add positional encoding
         # NOTE: logic for padding masks is reversed to comply with definition in MultiHeadAttention, TransformerEncoderLayer
         output = self.transformer_encoder(inp, src_key_padding_mask=~padding_masks)  # (seq_length, batch_size, d_model)
