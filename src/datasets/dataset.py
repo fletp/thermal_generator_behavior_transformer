@@ -1,12 +1,14 @@
 import numpy as np
 from torch.utils.data import Dataset
 import torch
+import math
 
 
 class ImputationDataset(Dataset):
     """Dynamically computes missingness (noise) mask for each sample"""
 
     def __init__(self, data, indices, mean_mask_length=3, masking_ratio=0.15,
+                 kernel_size=5, stride=1,
                  mode='separate', distribution='geometric', exclude_feats=None):
         super(ImputationDataset, self).__init__()
 
@@ -19,6 +21,10 @@ class ImputationDataset(Dataset):
         self.mode = mode
         self.distribution = distribution
         self.exclude_feats = exclude_feats
+
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.enc_len = math.floor((self.feature_df.shape[0] - self.kernel_size) / self.stride + 1)
 
     def __getitem__(self, ind):
         """
