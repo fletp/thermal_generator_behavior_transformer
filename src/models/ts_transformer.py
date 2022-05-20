@@ -266,6 +266,8 @@ class TSTransformerEncoderConv(nn.Module):
         enc_len = math.floor((self.max_len - self.kernel_size) / self.stride + 1)
         self.pos_enc = get_pos_encoder(pos_encoding)(d_model, dropout=dropout*(1.0 - freeze), max_len=enc_len)
         #TODO: The TransformerBatchNormEncoderLayer is getting told to expect the full max_len, but we're only passing it enc_len
+        self.mask_pooling = nn.MaxPool1d(kernel_size=self.kernel_size,
+                                         stride=self.stride)
 
         if norm == 'LayerNorm':
             encoder_layer = TransformerEncoderLayer(d_model, self.n_heads, dim_feedforward, dropout*(1.0 - freeze), activation=activation)
@@ -274,7 +276,12 @@ class TSTransformerEncoderConv(nn.Module):
 
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers)
 
-        self.output_layer = nn.Linear(d_model, feat_dim)
+        self.unproject_inp = nn.ConvTranspose1d(in_channels=self.d_model,
+                                                out_channels=self.d_model,
+                                                kernel_size=self.kernel_size,
+                                                stride=self.stride)
+
+        self.output_layer = nn.Linear(self.d_model, feat_dim)
 
         self.act = _get_activation_fn(activation)
 
@@ -299,9 +306,16 @@ class TSTransformerEncoderConv(nn.Module):
         inp = inp.permute(2, 0, 1)
         inp = self.pos_enc(inp)  # add positional encoding
         # NOTE: logic for padding masks is reversed to comply with definition in MultiHeadAttention, TransformerEncoderLayer
-        output = self.transformer_encoder(inp, src_key_padding_mask=~padding_masks)  # (seq_length, batch_size, d_model)
+        # TODO: This is the place to change the padding mask shape, anywhere deeper is incorrect since it messes with PyTorch directly
+        # We can do the MaxPooling approach here (define layer in __init__) then call it here to compress the padding masks only for convolutional version
+        pooled_mask = self.mask_pooling((~padding_masks).float()).bool()
+        output = self.transformer_encoder(inp, src_key_padding_mask=pooled_mask)  # (seq_length, batch_size, d_model)
         output = self.act(output)  # the output transformer encoder/decoder embeddings don't include non-linearity
-        output = output.permute(1, 0, 2)  # (batch_size, seq_length, d_model)
+        # Permuting to match ConvTranspose assumptions (batch_size, d_model, seq_length)
+        output = output.permute(1, 2, 0)
+        output = self.unproject_inp(output)
+        # Permuting to match dropout assumptions (batch_size, seq_length, d_model)
+        output = output.permute(0, 2, 1)  # (batch_size, seq_length, d_model)
         output = self.dropout1(output)
         # Most probably defining a Linear(d_model,feat_dim) vectorizes the operation over (seq_length, batch_size).
         output = self.output_layer(output)  # (batch_size, seq_length, feat_dim)
