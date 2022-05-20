@@ -518,9 +518,13 @@ class EpacemsData(BaseData):
         all_df['month'] = all_df.operating_datetime_utc.dt.month
         
         index_cols = ['unit_id_epa', 'year', 'month']
-        id_df = all_df.loc[:, index_cols].drop_duplicates().reset_index(drop = True)
-        id_df = id_df.reset_index().rename(columns = {'index' : 'sample_id'}).set_index(index_cols)
         all_df = all_df.set_index(index_cols)
+        id_df = all_df.groupby(index_cols).agg(n_obs = pd.NamedAgg('state', 'count'))
+        # Eliminate all samples with less than 100 observations (necessary for convolutions)
+        id_df = id_df.drop(index=id_df.loc[id_df.n_obs < 100].index)
+        id_df = id_df.reset_index().reset_index().rename(columns={'index':'sample_id'})
+        id_df = id_df.drop(columns='n_obs')
+        id_df = id_df.set_index(index_cols)
         all_df = all_df.merge(id_df, how = 'inner', left_index = True, right_index = True)
 
         return all_df
