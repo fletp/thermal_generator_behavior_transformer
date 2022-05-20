@@ -23,6 +23,7 @@ def model_factory(config, data):
         if config['model'] == 'trans_conv':
             return TSTransformerEncoderConv(feat_dim, max_seq_len, config['d_model'], config['num_heads'],
                                              config['num_layers'], config['dim_feedforward'], dropout=config['dropout'],
+                                             kernel_size=config['kernel_size'], stride=config['stride'],
                                              pos_encoding=config['pos_encoding'], activation=config['activation'],
                                              norm=config['normalization_layer'], freeze=config['freeze'])
         elif config['model'] == 'transformer':
@@ -248,18 +249,23 @@ class TSTransformerEncoder(nn.Module):
 class TSTransformerEncoderConv(nn.Module):
 
     def __init__(self, feat_dim, max_len, d_model, n_heads, num_layers, dim_feedforward, dropout=0.1,
+                 kernel_size=5, stride=1,
                  pos_encoding='fixed', activation='gelu', norm='BatchNorm', freeze=False):
         super(TSTransformerEncoderConv, self).__init__()
 
         self.max_len = max_len
         self.d_model = d_model
         self.n_heads = n_heads
+        self.kernel_size = kernel_size
+        self.stride = stride
 
         self.project_inp = nn.Conv1d(in_channels=feat_dim,
                                     out_channels=self.d_model,
-                                    kernel_size=5,
-                                    padding='same')
-        self.pos_enc = get_pos_encoder(pos_encoding)(d_model, dropout=dropout*(1.0 - freeze), max_len=max_len)
+                                    kernel_size=self.kernel_size,
+                                    stride=self.stride)
+        enc_len = math.floor((self.max_len - self.kernel_size) / self.stride + 1)
+        self.pos_enc = get_pos_encoder(pos_encoding)(d_model, dropout=dropout*(1.0 - freeze), max_len=enc_len)
+        #TODO: The TransformerBatchNormEncoderLayer is getting told to expect the full max_len, but we're only passing it enc_len
 
         if norm == 'LayerNorm':
             encoder_layer = TransformerEncoderLayer(d_model, self.n_heads, dim_feedforward, dropout*(1.0 - freeze), activation=activation)

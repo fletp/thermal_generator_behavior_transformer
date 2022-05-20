@@ -162,6 +162,10 @@ class Options(object):
                                  help='Activation to be used in transformer encoder')
         self.parser.add_argument('--normalization_layer', choices={'BatchNorm', 'LayerNorm'}, default='BatchNorm',
                                  help='Normalization layer to be used internally in transformer encoder')
+        self.parser.add_argument('--kernel_size', type=int, default=5,
+                                 help='Size of kernel to be used in the 1D-convolution mapping inputs to transformer embeddings')
+        self.parser.add_argument('--stride', type=int, default=1,
+                                 help='Length of stride to be used in the 1D-convolution mapping inputs to transformer embeddings')
 
     def parse(self):
 
