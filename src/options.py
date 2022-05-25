@@ -125,7 +125,7 @@ class Options(object):
                                  help=("Comma separated string of multiplicative factors to be applied to lr "
                                        "at corresponding steps specified in `lr_step`. If a single value is provided, "
                                        "it will be replicated to match the number of steps in `lr_step`."))
-        self.parser.add_argument('--batch_size', type=int, default=64,
+        self.parser.add_argument('--batch_size', type=int, default=128,
                                  help='Training batch size')
         self.parser.add_argument('--l2_reg', type=float, default=0,
                                  help='L2 weight regularization parameter')
@@ -146,11 +146,11 @@ class Options(object):
                                  help="""Used instead of the `max_seq_len`, when the data samples must be
                                  segmented into windows. Determines maximum input sequence length 
                                  (size of transformer layers).""")
-        self.parser.add_argument('--d_model', type=int, default=64,
+        self.parser.add_argument('--d_model', type=int, default=128,
                                  help='Internal dimension of transformer embeddings')
         self.parser.add_argument('--dim_feedforward', type=int, default=256,
                                  help='Dimension of dense feedforward part of transformer layer')
-        self.parser.add_argument('--num_heads', type=int, default=8,
+        self.parser.add_argument('--num_heads', type=int, default=16,
                                  help='Number of multi-headed attention heads')
         self.parser.add_argument('--num_layers', type=int, default=3,
                                  help='Number of transformer encoder layers (blocks)')
