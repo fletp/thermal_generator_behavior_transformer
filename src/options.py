@@ -15,7 +15,7 @@ class Options(object):
 
         ## Run from command-line arguments
         # I/O
-        self.parser.add_argument('--output_dir', default='./output',
+        self.parser.add_argument('--output_dir', default='./experiments',
                                  help='Root output directory. Must exist. Time-stamped directories will be created inside.')
         self.parser.add_argument('--data_dir', default='./data',
                                  help='Data directory')
@@ -32,7 +32,7 @@ class Options(object):
         self.parser.add_argument('--comment', type=str, default='', help='A comment/description of the experiment')
         self.parser.add_argument('--no_timestamp', action='store_true',
                                  help='If set, a timestamp will not be appended to the output directory name')
-        self.parser.add_argument('--records_file', default='./records.xls',
+        self.parser.add_argument('--records_file', default='.experiments/records.xls',
                                  help='Excel file keeping all records of experiments')
         # System
         self.parser.add_argument('--console', action='store_true',
@@ -54,7 +54,7 @@ class Options(object):
                                       "otherwise as an integer absolute number of samples")
         self.parser.add_argument('--test_only', choices={'testset', 'fold_transduction'},
                                  help='If set, no training will take place; instead, trained model will be loaded and evaluated on test set')
-        self.parser.add_argument('--data_class', type=str, default='weld',
+        self.parser.add_argument('--data_class', type=str, default='cems',
                                  help="Which type of data should be processed.")
         self.parser.add_argument('--labels', type=str,
                                  help="In case a dataset contains several labels (multi-task), "
@@ -115,7 +115,7 @@ class Options(object):
                                  help='Number of training epochs')
         self.parser.add_argument('--val_interval', type=int, default=2,
                                  help='Evaluate on validation set every this many epochs. Must be >= 1.')
-        self.parser.add_argument('--optimizer', choices={"Adam", "RAdam"}, default="Adam", help="Optimizer")
+        self.parser.add_argument('--optimizer', choices={"Adam", "RAdam"}, default="RAdam", help="Optimizer")
         self.parser.add_argument('--lr', type=float, default=1e-3,
                                  help='learning rate (default holds for batch size 64)')
         self.parser.add_argument('--lr_step', type=str, default='1000000',
@@ -156,7 +156,7 @@ class Options(object):
                                  help='Number of transformer encoder layers (blocks)')
         self.parser.add_argument('--dropout', type=float, default=0.1,
                                  help='Dropout applied to most transformer encoder layers')
-        self.parser.add_argument('--pos_encoding', choices={'fixed', 'learnable'}, default='fixed',
+        self.parser.add_argument('--pos_encoding', choices={'fixed', 'learnable'}, default='learnable',
                                  help='Internal dimension of transformer embeddings')
         self.parser.add_argument('--activation', choices={'relu', 'gelu'}, default='gelu',
                                  help='Activation to be used in transformer encoder')
