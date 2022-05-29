@@ -17,7 +17,7 @@ class Options(object):
         # I/O
         self.parser.add_argument('--output_dir', default='./experiments',
                                  help='Root output directory. Must exist. Time-stamped directories will be created inside.')
-        self.parser.add_argument('--data_dir', default='./data',
+        self.parser.add_argument('--data_dir', default='./data/epacems',
                                  help='Data directory')
         self.parser.add_argument('--load_model',
                                  help='Path to pre-trained model.')
@@ -39,7 +39,7 @@ class Options(object):
                                  help="Optimize printout for console output; otherwise for file")
         self.parser.add_argument('--print_interval', type=int, default=1,
                                  help='Print batch info every this many batches')
-        self.parser.add_argument('--gpu', type=str, default='0',
+        self.parser.add_argument('--gpu', type=str, default='-1',
                                  help='GPU index, -1 for CPU')
         self.parser.add_argument('--n_proc', type=int, default=-1,
                                  help='Number of processes for data loading/preprocessing. By default, equals num. of available cores.')
@@ -61,9 +61,9 @@ class Options(object):
                                       "which type of labels should be used in regression or classification, i.e. name of column(s).")
         self.parser.add_argument('--test_from',
                                  help='If given, will read test IDs from specified text file containing sample IDs one in each row')
-        self.parser.add_argument('--test_ratio', type=float, default=0,
+        self.parser.add_argument('--test_ratio', type=float, default=0.1,
                                  help="Set aside this proportion of the dataset as a test set")
-        self.parser.add_argument('--val_ratio', type=float, default=0.2,
+        self.parser.add_argument('--val_ratio', type=float, default=0.1,
                                  help="Proportion of the dataset to be used as a validation set")
         self.parser.add_argument('--pattern', type=str,
                                  help='Regex pattern used to select files contained in `data_dir`. If None, all data will be used.')
@@ -111,7 +111,7 @@ class Options(object):
         self.parser.add_argument('--harden', action='store_true',
                                  help='Makes training objective progressively harder, by masking more of the input')
 
-        self.parser.add_argument('--epochs', type=int, default=400,
+        self.parser.add_argument('--epochs', type=int, default=10,
                                  help='Number of training epochs')
         self.parser.add_argument('--val_interval', type=int, default=2,
                                  help='Evaluate on validation set every this many epochs. Must be >= 1.')
@@ -125,7 +125,7 @@ class Options(object):
                                  help=("Comma separated string of multiplicative factors to be applied to lr "
                                        "at corresponding steps specified in `lr_step`. If a single value is provided, "
                                        "it will be replicated to match the number of steps in `lr_step`."))
-        self.parser.add_argument('--batch_size', type=int, default=128,
+        self.parser.add_argument('--batch_size', type=int, default=8,
                                  help='Training batch size')
         self.parser.add_argument('--l2_reg', type=float, default=0,
                                  help='L2 weight regularization parameter')
