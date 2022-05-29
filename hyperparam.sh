@@ -1,0 +1,10 @@
+python src/main.py --name hypersearch_a --model trans_conv --lr 0.0575 --kernel_size 2 --stride 2
+python src/main.py --name hypersearch_b --model trans_conv --lr 0.000525 --kernel_size 8 --stride 4
+python src/main.py --name hypersearch_c --model trans_conv --lr 0.0457 --kernel_size 4 --stride 4
+python src/main.py --name hypersearch_d --model trans_conv --lr 0.170 --kernel_size 10 --stride 8
+python src/main.py --name hypersearch_e --model trans_conv --lr 0.363 --kernel_size 22 --stride 6
+python src/main.py --name hypersearch_f --model trans_conv --lr 0.000141 --kernel_size 4 --stride 2
+python src/main.py --name hypersearch_g --model trans_conv --lr 0.000347 --kernel_size 6 --stride 6
+python src/main.py --name hypersearch_h --model trans_conv --lr 0.000389 --kernel_size 8 --stride 2
+python src/main.py --name hypersearch_i --model trans_conv --lr 0.479 --kernel_size 14 --stride 12
+python src/main.py --name hypersearch_j --model trans_conv --lr 0.000912 --kernel_size 22 --stride 18
