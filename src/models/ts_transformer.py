@@ -387,12 +387,18 @@ class TSTransformerEncoderClassiregressor(nn.Module):
 
         return output
 
-class TSTransformerEncoderConv(nn.Module):
+class TSTransformerEncoderConvClassiregressor(nn.Module):
 
-    def __init__(self, feat_dim, max_len, d_model, n_heads, num_layers, dim_feedforward, dropout=0.1,
+    """
+    Simplest classifier/regressor. Can be either regressor or classifier because the output does not include
+    softmax. Concatenates final layer embeddings and uses 0s to ignore padding embeddings in final output layer.
+    """
+
+    def __init__(self, feat_dim, max_len, d_model, n_heads, num_layers, dim_feedforward, 
+                 num_classes, dropout=0.1,
                  kernel_size=5, stride=1,
                  pos_encoding='fixed', activation='gelu', norm='BatchNorm', freeze=False):
-        super(TSTransformerEncoderConv, self).__init__()
+        super(TSTransformerEncoderConvClassiregressor, self).__init__()
 
         self.max_len = max_len
         self.d_model = d_model
@@ -429,6 +435,14 @@ class TSTransformerEncoderConv(nn.Module):
         self.dropout1 = nn.Dropout(dropout)
 
         self.feat_dim = feat_dim
+        self.num_classes = num_classes
+        self.output_layer = self.build_output_module(d_model, max_len, num_classes)
+
+    def build_output_module(self, d_model, max_len, num_classes):
+        output_layer = nn.Linear(d_model * max_len, num_classes)
+        # no softmax (or log softmax), because CrossEntropyLoss does this internally. If probabilities are needed,
+        # add F.log_softmax and use NLLoss
+        return output_layer
 
     def forward(self, X, padding_masks):
         """
@@ -459,6 +473,8 @@ class TSTransformerEncoderConv(nn.Module):
         output = output.permute(0, 2, 1)  # (batch_size, seq_length, d_model)
         output = self.dropout1(output)
         # Most probably defining a Linear(d_model,feat_dim) vectorizes the operation over (seq_length, batch_size).
+        output = output * padding_masks.unsqueeze(-1)  # zero-out padding embeddings
+        output = output.reshape(output.shape[0], -1)  # (batch_size, seq_length * d_model)
         output = self.output_layer(output)  # (batch_size, seq_length, feat_dim)
 
         return output
