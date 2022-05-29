@@ -387,3 +387,78 @@ class TSTransformerEncoderClassiregressor(nn.Module):
 
         return output
 
+class TSTransformerEncoderConv(nn.Module):
+
+    def __init__(self, feat_dim, max_len, d_model, n_heads, num_layers, dim_feedforward, dropout=0.1,
+                 kernel_size=5, stride=1,
+                 pos_encoding='fixed', activation='gelu', norm='BatchNorm', freeze=False):
+        super(TSTransformerEncoderConv, self).__init__()
+
+        self.max_len = max_len
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.kernel_size = kernel_size
+        self.stride = stride
+
+        self.project_inp = nn.Conv1d(in_channels=feat_dim,
+                                    out_channels=self.d_model,
+                                    kernel_size=self.kernel_size,
+                                    stride=self.stride)
+        enc_len = math.floor((self.max_len - self.kernel_size) / self.stride + 1)
+        self.pos_enc = get_pos_encoder(pos_encoding)(d_model, dropout=dropout*(1.0 - freeze), max_len=enc_len)
+        #TODO: The TransformerBatchNormEncoderLayer is getting told to expect the full max_len, but we're only passing it enc_len
+        self.mask_pooling = nn.MaxPool1d(kernel_size=self.kernel_size,
+                                         stride=self.stride)
+
+        if norm == 'LayerNorm':
+            encoder_layer = TransformerEncoderLayer(d_model, self.n_heads, dim_feedforward, dropout*(1.0 - freeze), activation=activation)
+        else:
+            encoder_layer = TransformerBatchNormEncoderLayer(d_model, self.n_heads, dim_feedforward, dropout*(1.0 - freeze), activation=activation)
+
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers)
+
+        self.unproject_inp = nn.ConvTranspose1d(in_channels=self.d_model,
+                                                out_channels=self.d_model,
+                                                kernel_size=self.kernel_size,
+                                                stride=self.stride)
+
+        self.output_layer = nn.Linear(self.d_model, feat_dim)
+
+        self.act = _get_activation_fn(activation)
+
+        self.dropout1 = nn.Dropout(dropout)
+
+        self.feat_dim = feat_dim
+
+    def forward(self, X, padding_masks):
+        """
+        Args:
+            X: (batch_size, seq_length, feat_dim) torch tensor of masked features (input)
+            padding_masks: (batch_size, seq_length) boolean tensor, 1 means keep vector at this position, 0 means padding
+        Returns:
+            output: (batch_size, seq_length, feat_dim)
+        """
+
+        # permute because pytorch convention for Conv1D is [batch_size, feat_dim, seq_length]
+        inp = X.permute(0, 2, 1)
+        inp = self.project_inp(inp) * math.sqrt(
+            self.d_model)  # [batch_size, d_model, seq_length] project input vectors to d_model dimensional space
+        # permute because pytorch convention for transformers is [seq_length, batch_size, feat_dim]. padding_masks [batch_size, feat_dim]
+        inp = inp.permute(2, 0, 1)
+        inp = self.pos_enc(inp)  # add positional encoding
+        # NOTE: logic for padding masks is reversed to comply with definition in MultiHeadAttention, TransformerEncoderLayer
+        # TODO: This is the place to change the padding mask shape, anywhere deeper is incorrect since it messes with PyTorch directly
+        # We can do the MaxPooling approach here (define layer in __init__) then call it here to compress the padding masks only for convolutional version
+        pooled_mask = self.mask_pooling((~padding_masks).float()).bool()
+        output = self.transformer_encoder(inp, src_key_padding_mask=pooled_mask)  # (seq_length, batch_size, d_model)
+        output = self.act(output)  # the output transformer encoder/decoder embeddings don't include non-linearity
+        # Permuting to match ConvTranspose assumptions (batch_size, d_model, seq_length)
+        output = output.permute(1, 2, 0)
+        output = self.unproject_inp(output)
+        # Permuting to match dropout assumptions (batch_size, seq_length, d_model)
+        output = output.permute(0, 2, 1)  # (batch_size, seq_length, d_model)
+        output = self.dropout1(output)
+        # Most probably defining a Linear(d_model,feat_dim) vectorizes the operation over (seq_length, batch_size).
+        output = self.output_layer(output)  # (batch_size, seq_length, feat_dim)
+
+        return output
