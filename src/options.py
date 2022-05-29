@@ -75,7 +75,6 @@ class Options(object):
                             If None, `test_ratio`, if specified, will be used to reserve part of the common data set.""")
         self.parser.add_argument('--normalization',
                                  choices={'standardization', 'minmax', 'per_sample_std', 'per_sample_minmax'},
-                                 default='standardization',
                                  help='If specified, will apply normalization on the input features of a dataset.')
         self.parser.add_argument('--norm_from',
                                  help="""If given, will read normalization values (e.g. mean, std, min, max) from specified pickle file.
