@@ -39,7 +39,7 @@ class Options(object):
                                  help="Optimize printout for console output; otherwise for file")
         self.parser.add_argument('--print_interval', type=int, default=1,
                                  help='Print batch info every this many batches')
-        self.parser.add_argument('--gpu', type=str, default='-1',
+        self.parser.add_argument('--gpu', type=str, default='0',
                                  help='GPU index, -1 for CPU')
         self.parser.add_argument('--n_proc', type=int, default=-1,
                                  help='Number of processes for data loading/preprocessing. By default, equals num. of available cores.')
