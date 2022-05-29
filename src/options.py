@@ -17,7 +17,7 @@ class Options(object):
         # I/O
         self.parser.add_argument('--output_dir', default='./experiments',
                                  help='Root output directory. Must exist. Time-stamped directories will be created inside.')
-        self.parser.add_argument('--data_dir', default='./data/epacems',
+        self.parser.add_argument('--data_dir', default='./data/preprocessed/2019',
                                  help='Data directory')
         self.parser.add_argument('--load_model',
                                  help='Path to pre-trained model.')

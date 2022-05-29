@@ -13,10 +13,6 @@ from sktime.utils import load_data
 
 from datasets import utils
 
-# For interfacing with parquet files from PUDL
-import dask.dataframe as dd
-from dask.distributed import Client
-
 logger = logging.getLogger('__main__')
 
 
@@ -445,7 +441,7 @@ class PMUData(BaseData):
 
 class EpacemsData(BaseData):
     """
-    Dataset class for Machine dataset.
+    Dataset class for EPA Continuous Emissions Monitoring dataset (from preprocessed).
     Attributes:
         all_df: dataframe indexed by ID, with multiple rows corresponding to the same index (sample).
             Each row is a time step; Each column contains either metadata (e.g. timestamp) or a feature.
@@ -476,58 +472,64 @@ class EpacemsData(BaseData):
         self.feature_names = ['operating_time_hours', 'gross_load_mw', 'heat_content_mwh']
         self.feature_df = self.all_df[self.feature_names]
 
-    def load_all(self, root_dir, file_list = None, pattern = None):
+    def load_all(self, root_dir, file_list=None, pattern=None):
         """
-        Loads datasets from parquet files contained in `root_dir` into a dataframe, optionally choosing from `pattern`
+        Loads datasets from csv files contained in `root_dir` into a dataframe, optionally choosing from `pattern`
         Args:
-            root_dir: directory containing the partitioned parquet files
+            root_dir: directory containing all individual .csv files
+            file_list: optionally, provide a list of file paths within `root_dir` to consider.
+                Otherwise, entire `root_dir` contents will be used.
+            pattern: optionally, apply regex string to select subset of files
         Returns:
             all_df: a single (possibly concatenated) dataframe with all data corresponding to specified files
         """
-        client = Client()
+        # each file name corresponds to another date. Also tools (A, B) and others.
 
-        row_filter = [[('year', '=', 2019), ('state', '=', 'TX')]]
-        col_filter = [
-            "state",
-            "operating_datetime_utc",
-            "unit_id_epa",
-            "operating_time_hours",
-            "gross_load_mw",
-            "heat_content_mmbtu"
-        ]
-        epacems_dd = dd.read_parquet(
-            root_dir,
-            filters=row_filter,
-            columns=col_filter
-        )
-        all_df = epacems_dd.compute()
+        # Select paths for training and evaluation
+        if file_list is None:
+            data_paths = glob.glob(os.path.join(root_dir, '*'))  # list of all paths
+        else:
+            data_paths = [os.path.join(root_dir, p) for p in file_list]
+        if len(data_paths) == 0:
+            raise Exception('No files found using: {}'.format(os.path.join(root_dir, '*')))
 
-        # I chose to convert the heat_content_mmbtu column to a heat_content_mwh column 
-        # for ease of interpretation by non-energy-experts
-        all_df['heat_content_mwh'] = all_df.heat_content_mmbtu / 3.409510
-        all_df.drop(columns = ['heat_content_mmbtu'], inplace = True)
+        if pattern is None:
+            # by default evaluate on
+            selected_paths = data_paths
+        else:
+            selected_paths = list(filter(lambda x: re.search(pattern, x), data_paths))
 
-        # I chose to fill the NaNs in operating_time_hours with zeros, becuase they 
-        # occur in these giant long chunks, at least in several places, and to my best 
-        # understanding the EPA wouldn't allow missing values in this dataset, since
-        # it's a financial dataset used for cap and trade
-        all_df.operating_time_hours  = all_df.operating_time_hours.fillna(0)
+        input_paths = [p for p in selected_paths if os.path.isfile(p) and p.endswith('.csv')]
+        if len(input_paths) == 0:
+            raise Exception("No .csv files found using pattern: '{}'".format(pattern))
 
-        # Now, getting the TGU-month sample IDs for use by the transformer model
-        all_df['year'] = all_df.operating_datetime_utc.dt.year
-        all_df['month'] = all_df.operating_datetime_utc.dt.month
-        
-        index_cols = ['unit_id_epa', 'year', 'month']
-        all_df = all_df.set_index(index_cols)
-        id_df = all_df.groupby(index_cols).agg(n_obs = pd.NamedAgg('state', 'count'))
-        # Eliminate all samples with less than 100 observations (necessary for convolutions)
-        id_df = id_df.drop(index=id_df.loc[id_df.n_obs < 100].index)
-        id_df = id_df.reset_index().reset_index().rename(columns={'index':'sample_id'})
-        id_df = id_df.drop(columns='n_obs')
-        id_df = id_df.set_index(index_cols)
-        all_df = all_df.merge(id_df, how = 'inner', left_index = True, right_index = True)
+        if self.n_proc > 1:
+            # Load in parallel
+            _n_proc = min(self.n_proc, len(input_paths))  # no more than file_names needed here
+            logger.info("Loading {} datasets files using {} parallel processes ...".format(len(input_paths), _n_proc))
+            with Pool(processes=_n_proc) as pool:
+                all_df = pd.concat(pool.map(EpacemsData.load_single, input_paths))
+        else:  # read 1 file at a time
+            all_df = pd.concat(EpacemsData.load_single(path) for path in input_paths)
 
         return all_df
+
+    @staticmethod
+    def load_single(filepath):
+        df = EpacemsData.read_data(filepath)
+        num_nan = df.isna().sum().sum()
+        if num_nan > 0:
+            logger.warning("{} nan values in {} will be replaced by 0".format(num_nan, filepath))
+            df = df.fillna(0)
+
+        return df
+
+    @staticmethod
+    def read_data(filepath):
+        """Reads a single .csv, which typically contains a day of datasets of various weld sessions.
+        """
+        df = pd.read_csv(filepath)
+        return df
 
 data_factory = {'weld': WeldData,
                 'tsra': TSRegressionArchive,
