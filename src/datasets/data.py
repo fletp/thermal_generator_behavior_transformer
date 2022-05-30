@@ -450,6 +450,7 @@ class EpacemsData(BaseData):
         all_IDs: IDs contained in `all_df`/`feature_df` (same as all_df.index.unique() )
         max_seq_len: maximum sequence (time series) length. If None, script argument `max_seq_len` will be used.
             (Moreover, script argument overrides this attribute)
+        labels_df: labels for regression forecasting of the time series
     """
 
     def __init__(self, root_dir, file_list=None, pattern=None, n_proc=1, limit_size=None, config=None):
@@ -470,6 +471,13 @@ class EpacemsData(BaseData):
             self.all_df = self.all_df.loc[self.all_IDs]
 
         self.feature_names = ['operating_time_hours', 'gross_load_mw', 'heat_content_mwh']
+
+        if config['task'] == 'regression':
+            self.all_df, self.labels_df = self.split_input_label(self.all_df, label_len=24)
+            self.labels_df = self.labels_df[self.feature_names]
+        else:
+            self.labels_df = None
+
         self.feature_df = self.all_df[self.feature_names]
 
     def load_all(self, root_dir, file_list=None, pattern=None):
@@ -513,6 +521,14 @@ class EpacemsData(BaseData):
             all_df = pd.concat(EpacemsData.load_single(path) for path in input_paths)
 
         return all_df
+
+    def split_input_label(df, label_len):
+        """Splits dataset into inputs and labels, assumes that df already has index of sample_id"""
+        sample_grouper = df.groupby('sample_id')
+        all_df = sample_grouper.apply(lambda group: group.iloc[:-label_len, :])
+        labels_df = sample_grouper.apply(lambda group: group.iloc[-label_len:, :])
+
+        return all_df, labels_df
 
     @staticmethod
     def load_single(filepath):
