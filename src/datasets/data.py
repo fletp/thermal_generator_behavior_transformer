@@ -473,8 +473,12 @@ class EpacemsData(BaseData):
         self.feature_names = ['operating_time_hours', 'gross_load_mw', 'heat_content_mwh']
 
         if config['task'] == 'regression':
-            self.all_df, self.labels_df = self.split_input_label(self.all_df, label_len=24)
+            self.all_df, self.labels_df = EpacemsData.split_input_label(self.all_df, label_len=config['label_len'])
             self.labels_df = self.labels_df[self.feature_names]
+            # Get each label into a single row
+            self.labels_df = self.labels_df.groupby('sample_id').apply(lambda df: df.reset_index())
+            self.labels_df = self.labels_df.drop(columns=['sample_id']).reset_index()
+            self.labels_df = self.labels_df.pivot(index='sample_id', columns='level_1')
         else:
             self.labels_df = None
 
@@ -522,9 +526,10 @@ class EpacemsData(BaseData):
 
         return all_df
 
+    @staticmethod
     def split_input_label(df, label_len):
         """Splits dataset into inputs and labels, assumes that df already has index of sample_id"""
-        sample_grouper = df.groupby('sample_id')
+        sample_grouper = df.groupby('sample_id', group_keys=False)
         all_df = sample_grouper.apply(lambda group: group.iloc[:-label_len, :])
         labels_df = sample_grouper.apply(lambda group: group.iloc[-label_len:, :])
 
