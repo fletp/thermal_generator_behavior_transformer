@@ -34,13 +34,12 @@ def model_factory(config, data):
 
     if (task == "classification") or (task == "regression"):
         num_labels = len(data.class_names) if task == "classification" else data.labels_df.shape[1]  # dimensionality of labels
-        if config['model'] == 'LINEAR':
-            return DummyTSTransformerEncoderClassiregressor(feat_dim, max_seq_len, config['d_model'],
-                                                            config['num_heads'],
-                                                            config['num_layers'], config['dim_feedforward'],
+        if config['model'] == 'trans_conv':
+            return TSTransformerEncoderConvClassiregressor(feat_dim, max_seq_len, config['d_model'], config['num_heads'],
+                                                            config['num_layers'], config['dim_feedforward'], dropout=config['dropout'],
+                                                            kernel_size=config['kernel_size'], stride=config['stride'],
                                                             num_classes=num_labels,
-                                                            dropout=config['dropout'], pos_encoding=config['pos_encoding'],
-                                                            activation=config['activation'],
+                                                            pos_encoding=config['pos_encoding'], activation=config['activation'],
                                                             norm=config['normalization_layer'], freeze=config['freeze'])
         elif config['model'] == 'transformer':
             return TSTransformerEncoderClassiregressor(feat_dim, max_seq_len, config['d_model'],
@@ -427,8 +426,6 @@ class TSTransformerEncoderConvClassiregressor(nn.Module):
                                                 out_channels=self.d_model,
                                                 kernel_size=self.kernel_size,
                                                 stride=self.stride)
-
-        self.output_layer = nn.Linear(self.d_model, feat_dim)
 
         self.act = _get_activation_fn(activation)
 
